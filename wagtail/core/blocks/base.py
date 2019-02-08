@@ -39,6 +39,7 @@ class BaseBlock(type):
 class Block(metaclass=BaseBlock):
     name = ''
     creation_counter = 0
+    used_by = set()
 
     TEMPLATE_VAR = 'value'
 
@@ -404,6 +405,10 @@ class Block(metaclass=BaseBlock):
             # in models.py.
 
         return (self.name == other.name) and (self.deconstruct() == other.deconstruct())
+
+    @classmethod
+    def register_used_by(cls, klass, fieldname):
+        cls.used_by.add((klass, fieldname))
 
 
 class BoundBlock:

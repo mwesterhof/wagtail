@@ -25,6 +25,7 @@ from django.utils.translation import ugettext_lazy as _
 from modelcluster.models import ClusterableModel, get_all_child_relations
 from treebeard.mp_tree import MP_Node
 
+from wagtail.core.fields import StreamField
 from wagtail.core.query import PageQuerySet, TreeQuerySet
 from wagtail.core.signals import page_published, page_unpublished
 from wagtail.core.sites import get_site_for_hostname
@@ -209,6 +210,33 @@ class PageBase(models.base.ModelBase):
         if not cls._meta.abstract:
             # register this type in the list of page content types
             PAGE_MODEL_CLASSES.append(cls)
+
+    def __new__(cls, name, bases, attrs):
+        new_class = super(PageBase, cls).__new__(cls, name, bases, attrs)
+        stream_fields = [
+            (attrname, attr)
+            for attrname, attr in attrs.items() if
+            isinstance(attr, StreamField)
+        ]
+
+        def _notify_blocks(parent, klass, fieldname):
+            parent.register_used_by(klass, fieldname)
+            if hasattr(parent, 'child_blocks'):
+                child_blocks = parent.child_blocks.values()
+            elif hasattr(parent, 'child_block'):
+                child_blocks = [parent.child_block]
+            else:
+                child_blocks = []
+
+            for child in child_blocks:
+                _notify_blocks(child, klass, fieldname)
+
+        if stream_fields:
+            for fieldname, field in stream_fields:
+                _notify_blocks(field.stream_block, new_class, fieldname)
+
+
+        return new_class
 
 
 class AbstractPage(MP_Node):
